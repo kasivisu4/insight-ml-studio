@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Card, 
@@ -22,7 +21,10 @@ import {
   Scatter,
   ZAxis,
   AreaChart,
-  Area
+  Area,
+  BarChart,
+  Bar,
+  ReferenceLine
 } from 'recharts';
 import { ModelType } from './ModelSelection';
 import { Separator } from '@/components/ui/separator';
@@ -421,8 +423,5 @@ const ModelResults: React.FC<ModelResultsProps> = ({
     </div>
   );
 };
-
-// Import ReferenceLine component
-import { ReferenceLine } from 'recharts';
 
 export default ModelResults;
