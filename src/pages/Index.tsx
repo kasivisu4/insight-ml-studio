@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import Stepper, { Step } from '@/components/Stepper';
@@ -10,6 +11,8 @@ import ModelResults from '@/components/ModelResults';
 import PredictData from '@/components/PredictData';
 import { parseCSV, determineTaskType, generateMockClassificationMetrics, generateMockRegressionMetrics, generateMockPredictions } from '@/lib/utils';
 import MultiModelSelection from '@/components/MultiModelSelection';
+import { Button } from '@/components/ui/button';
+import { ChevronRight } from 'lucide-react';
 
 type WorkflowStep = 'upload' | 'select' | 'train' | 'evaluate' | 'predict';
 
@@ -34,6 +37,8 @@ const Index = () => {
   const [predictions, setPredictions] = useState<any[]>([]);
   const [selectedModels, setSelectedModels] = useState<ModelType[]>([]);
   const [modelResults, setModelResults] = useState<Record<ModelType, any>>({});
+  // Initialize model params as an empty Record<ModelType, any> object
+  const [multiModelParams, setMultiModelParams] = useState<Record<ModelType, any>>({});
 
   // Steps configuration
   const steps: Step[] = [
@@ -123,7 +128,7 @@ const Index = () => {
     models.forEach(model => {
       initialParams[model] = defaultModelParams[model] || {};
     });
-    setModelParams(initialParams);
+    setMultiModelParams(initialParams);
   }, []);
 
   // Handle training completion for multiple models
@@ -138,15 +143,17 @@ const Index = () => {
       ...prev,
       [modelType]: {
         type: modelType,
-        params: modelParams[modelType]
+        params: multiModelParams[modelType]
       }
     }));
     
-    // If all models have completed training, move to evaluate step
-    if (Object.keys(modelResults).length === selectedModels.length) {
+    // Check if all models have completed training
+    const completedModels = Object.keys(modelResults).length + 1; // +1 for the one we just added
+    if (completedModels === selectedModels.length) {
+      // Move to evaluate step
       setCurrentStep('evaluate');
     }
-  }, [selectedModels.length, modelParams, modelResults]);
+  }, [selectedModels.length, multiModelParams, modelResults]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -200,12 +207,13 @@ const Index = () => {
                       <DataTable data={data.slice(0, 50)} />
                       
                       <div className="mt-6 flex justify-end">
-                        <button
+                        <Button
                           onClick={() => navigateToStep('select')}
-                          className="px-4 py-2 bg-ml-primary text-white rounded-md hover:bg-ml-primary/90 transition-colors"
+                          className="bg-ml-primary hover:bg-ml-primary/90 text-white flex items-center gap-2"
                         >
                           Next: Select Features
-                        </button>
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -272,13 +280,14 @@ const Index = () => {
                     </div>
                     
                     <div className="mt-6 flex justify-end">
-                      <button
+                      <Button
                         onClick={() => navigateToStep('train')}
-                        className="px-4 py-2 bg-ml-primary text-white rounded-md hover:bg-ml-primary/90 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        className="bg-ml-primary hover:bg-ml-primary/90 text-white flex items-center gap-2"
                         disabled={selectedFeatures.length === 0 || !selectedTarget}
                       >
                         Next: Train Model
-                      </button>
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -311,7 +320,7 @@ const Index = () => {
                           targetName={selectedTarget}
                           taskType={taskType}
                           modelType={modelType}
-                          modelParams={modelParams[modelType]}
+                          modelParams={multiModelParams[modelType]}
                           onTrainingComplete={(info) => handleTrainingCompleteMulti(info, modelType)}
                         />
                       </CardContent>
@@ -319,15 +328,71 @@ const Index = () => {
                   ))}
                 </div>
               )}
+
+              {selectedModels.length === 0 && (
+                <div className="flex justify-center p-8 text-center">
+                  <div className="max-w-md">
+                    <h3 className="text-lg font-medium text-gray-700 mb-2">Select Models to Train</h3>
+                    <p className="text-gray-500">Select one or more models from the list above to begin training</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
           
           {currentStep === 'evaluate' && trainedModel && taskType && (
             <div className="space-y-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Model Comparison</CardTitle>
+                  <CardDescription>
+                    Compare the performance of your trained models
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {Object.entries(modelResults).map(([modelType, results]) => (
+                      <Card key={modelType} className="border-2 hover:border-ml-primary transition-colors">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-lg">{modelType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-sm space-y-1">
+                            {taskType === 'classification' ? (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Accuracy:</span>
+                                  <span className="font-medium">{results.metrics?.accuracy.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">F1 Score:</span>
+                                  <span className="font-medium">{results.metrics?.f1Score.toFixed(2)}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">R² Score:</span>
+                                  <span className="font-medium">{results.metrics?.r2Score.toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">MAE:</span>
+                                  <span className="font-medium">{results.metrics?.mae.toFixed(2)}</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+              
               {Object.entries(modelResults).map(([modelType, results]) => (
                 <Card key={modelType}>
                   <CardHeader>
-                    <CardTitle>Model Evaluation - {modelType}</CardTitle>
+                    <CardTitle>Model Evaluation - {modelType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <ModelResults
@@ -340,6 +405,16 @@ const Index = () => {
                   </CardContent>
                 </Card>
               ))}
+
+              <div className="flex justify-end mt-6">
+                <Button
+                  onClick={() => navigateToStep('predict')}
+                  className="bg-ml-primary hover:bg-ml-primary/90 text-white flex items-center gap-2"
+                >
+                  Next: Make Predictions
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
           
@@ -349,12 +424,12 @@ const Index = () => {
                 <CardHeader>
                   <CardTitle>Make Predictions</CardTitle>
                   <CardDescription>
-                    Upload new data and get predictions from your trained model
+                    Upload new data and get predictions from your trained models
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <PredictData 
-                    modelType={trainedModel.type}
+                    modelType={Object.keys(modelResults)[0] as ModelType}
                     taskType={taskType}
                     featureNames={selectedFeatures}
                   />
