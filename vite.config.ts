@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
-  base: "https://kasivisu4.github.io/insight-ml-studio/",
+  base: "/insight-ml-studio/",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
