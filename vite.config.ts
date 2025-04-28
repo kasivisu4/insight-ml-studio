@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === 'development' &&
     componentTagger(),
   ].filter(Boolean),
-  base: "./insight-ml-studio/",
+  base: "./insight-ml-studio/src",
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./insight-ml-studio/src"),
