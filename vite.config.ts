@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
   base: "/insight-ml-studio/",
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "/insight-ml-studio/src"),
+      "@": path.resolve(__dirname, "./insight-ml-studio/src"),
     },
   },
 }));
