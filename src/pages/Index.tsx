@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import Stepper, { Step } from '@/components/Stepper';
@@ -386,7 +385,7 @@ const Index = () => {
                       </Card>
                     ))}
                   </div>
-                </div>
+                </CardContent>
               </Card>
               
               {Object.entries(modelResults).map(([modelType, results]) => (
