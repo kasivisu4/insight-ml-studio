@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import Stepper, { Step } from '@/components/Stepper';
@@ -10,6 +9,7 @@ import ModelTraining from '@/components/ModelTraining';
 import ModelResults from '@/components/ModelResults';
 import PredictData from '@/components/PredictData';
 import { parseCSV, determineTaskType, generateMockClassificationMetrics, generateMockRegressionMetrics, generateMockPredictions } from '@/lib/utils';
+import MultiModelSelection from '@/components/MultiModelSelection';
 
 type WorkflowStep = 'upload' | 'select' | 'train' | 'evaluate' | 'predict';
 
@@ -32,6 +32,8 @@ const Index = () => {
   const [modelMetrics, setModelMetrics] = useState<any>(null);
   const [featureImportance, setFeatureImportance] = useState<any[]>([]);
   const [predictions, setPredictions] = useState<any[]>([]);
+  const [selectedModels, setSelectedModels] = useState<ModelType[]>([]);
+  const [modelResults, setModelResults] = useState<Record<ModelType, any>>({});
 
   // Steps configuration
   const steps: Step[] = [
@@ -112,6 +114,39 @@ const Index = () => {
     // Move to evaluate step
     setCurrentStep('evaluate');
   }, [selectedModel, modelParams, taskType]);
+
+  // Update model selection handler
+  const handleModelsSelect = useCallback((models: ModelType[]) => {
+    setSelectedModels(models);
+    // Initialize params for each selected model
+    const initialParams: Record<ModelType, any> = {};
+    models.forEach(model => {
+      initialParams[model] = defaultModelParams[model] || {};
+    });
+    setModelParams(initialParams);
+  }, []);
+
+  // Handle training completion for multiple models
+  const handleTrainingCompleteMulti = useCallback((modelInfo: any, modelType: ModelType) => {
+    setModelResults(prev => ({
+      ...prev,
+      [modelType]: modelInfo
+    }));
+    
+    // Update trained model state
+    setTrainedModel(prev => ({
+      ...prev,
+      [modelType]: {
+        type: modelType,
+        params: modelParams[modelType]
+      }
+    }));
+    
+    // If all models have completed training, move to evaluate step
+    if (Object.keys(modelResults).length === selectedModels.length) {
+      setCurrentStep('evaluate');
+    }
+  }, [selectedModels.length, modelParams, modelResults]);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -253,67 +288,58 @@ const Index = () => {
           
           {currentStep === 'train' && taskType && (
             <div className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Select Model</CardTitle>
-                  <CardDescription>
-                    Choose the type of model to train on your data
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ModelSelection 
-                    taskType={taskType} 
-                    selectedModel={selectedModel}
-                    modelParams={modelParams}
-                    onModelSelect={handleModelSelect}
-                    onParamsChange={handleParamsChange}
-                  />
-                  
-                  {selectedModel && (
-                    <div className="mt-8">
-                      <ModelTraining 
-                        featureNames={selectedFeatures}
-                        targetName={selectedTarget}
-                        taskType={taskType}
-                        modelType={selectedModel}
-                        modelParams={modelParams}
-                        onTrainingComplete={handleTrainingComplete}
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <MultiModelSelection
+                taskType={taskType}
+                selectedModels={selectedModels}
+                onModelsSelect={handleModelsSelect}
+              />
+              
+              {selectedModels.length > 0 && (
+                <div className="grid gap-8">
+                  {selectedModels.map(modelType => (
+                    <Card key={modelType}>
+                      <CardHeader>
+                        <CardTitle>{modelType === 'linear_regression' ? 'Linear Regression' : 
+                                  modelType === 'logistic_regression' ? 'Logistic Regression' :
+                                  modelType === 'decision_tree' ? 'Decision Tree' :
+                                  modelType === 'random_forest' ? 'Random Forest' :
+                                  'XGBoost'} Training</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ModelTraining
+                          featureNames={selectedFeatures}
+                          targetName={selectedTarget}
+                          taskType={taskType}
+                          modelType={modelType}
+                          modelParams={modelParams[modelType]}
+                          onTrainingComplete={(info) => handleTrainingCompleteMulti(info, modelType)}
+                        />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
           {currentStep === 'evaluate' && trainedModel && taskType && (
             <div className="space-y-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Model Evaluation</CardTitle>
-                  <CardDescription>
-                    Review the performance of your trained model
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ModelResults 
-                    modelType={trainedModel.type}
-                    taskType={taskType}
-                    metrics={modelMetrics}
-                    featureImportance={featureImportance}
-                    predictions={predictions}
-                  />
-                  
-                  <div className="mt-6 flex justify-end">
-                    <button
-                      onClick={() => navigateToStep('predict')}
-                      className="px-4 py-2 bg-ml-primary text-white rounded-md hover:bg-ml-primary/90 transition-colors"
-                    >
-                      Next: Make Predictions
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+              {Object.entries(modelResults).map(([modelType, results]) => (
+                <Card key={modelType}>
+                  <CardHeader>
+                    <CardTitle>Model Evaluation - {modelType}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ModelResults
+                      modelType={modelType as ModelType}
+                      taskType={taskType}
+                      metrics={results.metrics}
+                      featureImportance={results.featureImportance}
+                      predictions={results.predictions}
+                    />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
           
